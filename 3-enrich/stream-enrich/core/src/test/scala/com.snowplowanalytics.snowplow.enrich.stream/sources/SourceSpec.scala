@@ -48,24 +48,25 @@ class SourceSpec extends Specification {
             FallbackCPFormatViolationMessage("ah")
           ),
           RawPayload("ah"),
-          Processor.default
+          Processor("se", "1.0.0")
         )
       )
-      val res = Source.adjustOversizedFailureJson(original, 200, Processor.default)
+      val res = Source.adjustOversizedFailureJson(original, 200, Processor("sce", "1.0.0"))
       res.schema must_== Source.oversizedBadRow
       res.data.failure must haveClass[SizeViolation]
       val f = res.data.failure.asInstanceOf[SizeViolation]
       f.actualSizeBytes must_== 255
       f.maximumAllowedSizeBytes must_== 200
       f.expectation must_== "bad row exceeded the maximum size"
-      res.data.payload must_== RawPayload("""{"schema":"iglu:com.snowplowanalytics.sn""")
-      res.data.processor must_== Processor.default
+      res.data.payload must_== RawPayload("""{"schema":"iglu:com.snowplowanalyti""")
+      res.data.processor must_== Processor("sce", "1.0.0")
     }
   }
 
   "oversizedSuccessToFailure" should {
     "create a bad row JSON from an oversized success" in {
-      val res = Source.oversizedSuccessToFailure("abcdefghijklmnopqrstuvwxy", 10, Processor.default)
+      val res =
+        Source.oversizedSuccessToFailure("abcdefghijklmnopqrstuvwxy", 10, Processor("sce", "1.0.0"))
       res.schema must_== Source.oversizedBadRow
       res.data.failure must haveClass[SizeViolation]
       val f = res.data.failure.asInstanceOf[SizeViolation]
@@ -73,7 +74,7 @@ class SourceSpec extends Specification {
       f.maximumAllowedSizeBytes must_== 10
       f.expectation must_== "event passed enrichment but exceeded the maximum allowed size as a result"
       res.data.payload must_== RawPayload("ab")
-      res.data.processor must_== Processor.default
+      res.data.processor must_== Processor("sce", "1.0.0")
     }
   }
 }
