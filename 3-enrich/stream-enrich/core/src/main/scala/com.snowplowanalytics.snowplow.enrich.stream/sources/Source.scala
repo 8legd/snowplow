@@ -42,7 +42,6 @@ import com.snowplowanalytics.snowplow.enrich.common.adapters.AdapterRegistry
 import com.snowplowanalytics.snowplow.enrich.common.enrichments.EnrichmentRegistry
 import com.snowplowanalytics.snowplow.enrich.common.loaders.{CollectorPayload, ThriftLoader}
 import com.snowplowanalytics.snowplow.enrich.common.outputs.EnrichedEvent
-import com.snowplowanalytics.snowplow.scalatracker.Tracker
 import io.circe.Json
 import io.circe.syntax._
 import org.joda.time.DateTime
@@ -88,7 +87,7 @@ object Source {
       oversizedBadRow,
       BadRow(
         SizeViolation(Instant.now(), maxSizeBytes, size, "bad row exceeded the maximum size"),
-        RawPayload(json.take(size / 10)),
+        RawPayload(json.take(maxSizeBytes / 10)),
         processor
       )
     )
@@ -112,7 +111,7 @@ object Source {
       oversizedBadRow,
       BadRow(
         SizeViolation(Instant.now(), maxSizeBytes, size, msg),
-        RawPayload(value.take(size / 10)),
+        RawPayload(value.take(maxSizeBytes / 10)),
         processor
       )
     )
@@ -134,7 +133,6 @@ abstract class Source(
   client: Client[Id, Json],
   adapterRegistry: AdapterRegistry,
   enrichmentRegistry: EnrichmentRegistry[Id],
-  tracker: Option[Tracker[Id]],
   processor: Processor,
   partitionKey: String
 ) {
@@ -151,7 +149,7 @@ abstract class Source(
   def getPiiEvent(event: EnrichedEvent): Option[EnrichedEvent] =
     Option(event.pii)
       .filter(_.nonEmpty)
-      .map { piiStr =>
+      .map { _ =>
         val ee = new EnrichedEvent
         ee.unstruct_event = event.pii
         ee.app_id = event.app_id
