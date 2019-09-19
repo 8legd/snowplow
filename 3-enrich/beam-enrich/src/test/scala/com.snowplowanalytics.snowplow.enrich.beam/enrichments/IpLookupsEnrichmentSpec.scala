@@ -36,12 +36,12 @@ object IpLookupsEnrichmentSpec {
     "37.228.225.32",
     "10d96bc7-e400-4b29-8a41-6911ad00ee98",
     "IE",
-    "L",
-    "Dublin",
-    "D02",
-    "53.3338", //!\ after an update of MaxMind database this coordinate might change
-    "-6.2488", //!\ after an update of MaxMind database this coordinate might change
-    "Leinster",
+    "G",
+    "Galway",
+    "H91",
+    "53.2709", //!\ after an update of MaxMind database this coordinate might change
+    "-9.0497", //!\ after an update of MaxMind database this coordinate might change
+    "County Galway",
     """{"schema":"iglu:com.snowplowanalytics.snowplow/unstruct_event/jsonschema/1-0-0","data":{"schema":"iglu:com.snowplowanalytics.snowplow/screen_view/jsonschema/1-0-0","data":{"name":"hello from Snowplow"}}}""",
     "curl/7.50.3",
     "com.snowplowanalytics.snowplow",
@@ -80,7 +80,7 @@ class IpLookupsEnrichmentSpec extends PipelineSpec {
       }
       .distribution(Enrich.enrichedEventSizeDistribution) { d =>
         d.getCount() shouldBe 1
-        d.getMin() shouldBe 675
+        d.getMin() shouldBe 687
         d.getMin() shouldBe d.getMax()
         d.getMin() shouldBe d.getSum()
         d.getMin() shouldBe d.getMean()
