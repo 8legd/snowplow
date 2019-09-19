@@ -18,7 +18,7 @@ import Tests._
 
 lazy val commonSettings = Defaults.coreDefaultSettings ++ Seq(
   organization  := "com.snowplowanalytics",
-  version       := "1.0.0",
+  version       := "1.0.0-rc3",
   scalaVersion  := "2.12.8",
   resolvers     ++= resolutionRepos
 )
@@ -45,7 +45,7 @@ dockerUpdateLatest := true
 
 lazy val scioVersion = "0.7.4"
 lazy val beamVersion = "2.11.0"
-lazy val sceVersion = "1.0.0"
+lazy val sceVersion = "1.0.0-M3"
 lazy val scalaMacrosVersion = "2.1.1"
 lazy val slf4jVersion = "1.7.25"
 lazy val circeVersion = "0.11.1"
