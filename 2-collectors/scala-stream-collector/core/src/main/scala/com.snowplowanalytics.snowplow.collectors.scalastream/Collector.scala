@@ -17,14 +17,19 @@ package collectors
 package scalastream
 
 import java.io.File
+import javax.net.ssl.SSLContext
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.http.scaladsl.server.Directives._
-import akka.stream.ActorMaterializer
+import akka.stream.{ActorMaterializer, TLSClientAuth}
 import com.snowplowanalytics.snowplow.collectors.scalastream.metrics._
 import com.snowplowanalytics.snowplow.collectors.scalastream.model._
 import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.sslconfig.akka.AkkaSSLConfig
+import com.typesafe.sslconfig.akka.util.AkkaLoggerFactory
+import com.typesafe.sslconfig.ssl.ConfigSSLContextBuilder
+import com.typesafe.sslconfig.ssl.{ClientAuth => SslClientAuth}
 import org.slf4j.LoggerFactory
 import pureconfig._
 
@@ -62,6 +67,55 @@ trait Collector {
     (loadConfigOrThrow[CollectorConfig](conf.getConfig("collector")), conf)
   }
 
+  private def secureConnectionContext(system: ActorSystem, sslConfig: AkkaSSLConfig) = {
+    val config = sslConfig.config
+
+    val sslContext = if (sslConfig.config.default) {
+      sslConfig.validateDefaultTrustManager(config)
+      SSLContext.getDefault
+    } else {
+      val mkLogger = new AkkaLoggerFactory(system)
+      val keyManagerFactory   = sslConfig.buildKeyManagerFactory(config)
+      val trustManagerFactory = sslConfig.buildTrustManagerFactory(config)
+      new ConfigSSLContextBuilder(mkLogger, config, keyManagerFactory, trustManagerFactory).build()
+    }
+
+    val defaultParams    = sslContext.getDefaultSSLParameters
+    val defaultProtocols = defaultParams.getProtocols
+    val protocols        = sslConfig.configureProtocols(defaultProtocols, config)
+    defaultParams.setProtocols(protocols)
+
+    val defaultCiphers = defaultParams.getCipherSuites
+    val cipherSuites   = sslConfig.configureCipherSuites(defaultCiphers, config)
+    defaultParams.setCipherSuites(cipherSuites)
+
+    val clientAuth: Option[TLSClientAuth] = config.sslParametersConfig.clientAuth match {
+      case SslClientAuth.Default => None
+      case SslClientAuth.Want =>
+        defaultParams.setWantClientAuth(true)
+        Some(TLSClientAuth.Want)
+      case SslClientAuth.Need =>
+        defaultParams.setNeedClientAuth(true)
+        Some(TLSClientAuth.Need)
+      case SslClientAuth.None =>
+        defaultParams.setNeedClientAuth(false)
+        Some(TLSClientAuth.None)
+    }
+
+    if (!sslConfig.config.loose.disableHostnameVerification) {
+      defaultParams.setEndpointIdentificationAlgorithm("HTTPS")
+    }
+
+    ConnectionContext.https(
+      sslContext,
+      Some(sslConfig),
+      Some(cipherSuites.toList),
+      Some(defaultProtocols.toList),
+      clientAuth,
+      Some(defaultParams)
+    )
+  }
+
   def run(collectorConf: CollectorConfig, akkaConf: Config, sinks: CollectorSinks): Unit = {
 
     implicit val system = ActorSystem.create("scala-stream-collector", akkaConf)
@@ -82,12 +136,14 @@ trait Collector {
       override def metricsService: MetricsService = prometheusMetricsService
     }
 
+    val connectionContext = if (!collectorConf.ssl) ConnectionContext.noEncryption() else secureConnectionContext(system, AkkaSSLConfig())
+
     val routes =
       if (collectorConf.prometheusMetrics.enabled)
         metricsRoute.metricsRoute ~ metricsDirectives.logRequest(collectorRoute.collectorRoute)
       else collectorRoute.collectorRoute
 
-    Http().bindAndHandle(routes, collectorConf.interface, collectorConf.port)
+    Http().bindAndHandle(routes, collectorConf.interface, collectorConf.port, connectionContext)
       .map { binding =>
         log.info(s"REST interface bound to ${binding.localAddress}")
       } recover { case ex =>

@@ -130,6 +130,7 @@ package model {
   final case class CollectorConfig(
     interface: String,
     port: Int,
+    ssl: Boolean,
     paths: Map[String, String],
     p3p: P3PConfig,
     crossDomain: CrossDomainConfig,
